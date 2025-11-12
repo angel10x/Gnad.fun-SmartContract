@@ -8,9 +8,14 @@ import {
     ERC20Permit
 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IWMon} from "./interfaces/IWMon.sol";
 
-contract WGnad is ERC20Permit {
-    constructor() ERC20("Wrapped GoMonad Token", "WGnad") ERC20Permit("WGNAD") {}
+/**
+ * @title WMon
+ * @dev A simple wrapped monad token contract.
+ */
+contract WMon is ERC20Permit, IWMon {
+    constructor() ERC20("Wrapped Monad Token", "WMon") ERC20Permit("WMON") {}
 
     receive() external payable {
         deposit();
@@ -19,9 +24,6 @@ contract WGnad is ERC20Permit {
     fallback() external payable {
         deposit();
     }
-
-    event Deposit(address indexed to, uint256 amount);
-    event Withdrawal(address indexed from, uint256 amount);
 
     function deposit() public payable {
         _mint(msg.sender, msg.value);
