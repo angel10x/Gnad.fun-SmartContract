@@ -20,15 +20,18 @@ contract Token is IToken, ERC20Permit {
     address private _factory;
     bool private _minted;
     string public tokenURI;
+    address private gNad;
 
     constructor(
         string memory name,
         string memory symbol,
-        string memory _tokenURI
+        string memory _tokenURI,
+        address _gNad
     ) ERC20(name, symbol) ERC20Permit(name) {
         tokenURI = _tokenURI;
         _minted = false;
         _factory = msg.sender;
+        gNad = _gNad;
     }
 
     function mint(address _curve) external {
@@ -65,12 +68,7 @@ contract Token is IToken, ERC20Permit {
     function transfer(
         address to,
         uint256 value
-    )
-        public
-        virtual
-        override(ERC20, IERC20)
-        returns (bool)
-    {
+    ) public virtual override(ERC20, IERC20) returns (bool) {
         _transfer(msg.sender, to, value);
 
         return true;
