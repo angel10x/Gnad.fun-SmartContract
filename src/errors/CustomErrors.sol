@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.13;
 
 // BondingCurveFactory
 string constant INVALID_BC_FACTORY_OWNER = "BondingCurveFactory: INVALID_BC_FACTORY_OWNER";
