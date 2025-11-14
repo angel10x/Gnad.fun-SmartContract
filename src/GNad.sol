@@ -21,13 +21,13 @@ import "./errors/CustomErrors.sol";
 /**
  * @title Gnad
  * @notice Main contract for managing bonding curve operations and Native token interactions
- * @dev Handles creation of bonding curves, buying and selling operations with various payment mNativeods
+ * @dev Handles creation of bonding curves, buying and selling operations with various payment methods
  */
 contract GNad is IGNad {
     using SafeERC20 for IERC20;
     /// @notice Address of the bonding curve factory contract
 
-    address public factory;
+    address public bcFactory;
     /// @notice Address of the wrapped Native token
     address public immutable wMon;
     /// @notice ERC4626 vault contract for fee collection
@@ -62,9 +62,9 @@ contract GNad is IGNad {
         _;
     }
 
-    function initialize(address _factory) external {
+    function initialize(address _bcFactory) external {
         require(!isInitialized, ALREADY_INITIALIZED);
-        factory = _factory;
+        bcFactory = _bcFactory;
         isInitialized = true;
     }
 
@@ -124,11 +124,11 @@ contract GNad is IGNad {
             uint256 amountOut
         )
     {
-        uint256 _deployFee = IBondingCurveFactory(factory).getDelpyFee();
+        uint256 _deployFee = IBondingCurveFactory(bcFactory).getDelpyFee();
         require(msg.value >= amountIn + fee + _deployFee, INVALID_MON_AMOUNT);
 
         (curve, token, virtualNative, virtualToken) = IBondingCurveFactory(
-            factory
+            bcFactory
         ).create(creator, name, symbol, tokenURI);
 
         IWMon(wMon).deposit{value: amountIn + fee + _deployFee}();
@@ -179,7 +179,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
         checkFee(curve, amountIn, fee);
 
         // Calculate and verify amountOut
@@ -227,7 +227,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
         checkFee(curve, amountIn, fee);
 
         uint256 amountOut = getAmountOut(
@@ -272,7 +272,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
         uint256 amountIn = getAmountIn(
             amountOut,
             k,
@@ -326,7 +326,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
 
         uint256 amountOut = getAmountOut(
             amountIn,
@@ -384,7 +384,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
 
         uint256 amountOut = getAmountOut(
             amountIn,
@@ -434,7 +434,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
 
         uint256 amountOut = getAmountOut(
             amountIn,
@@ -502,7 +502,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
 
         // Calculate and verify amountOut
         uint256 amountOut = getAmountOut(
@@ -557,7 +557,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
 
         uint256 fee = msg.value;
         checkFee(curve, amountOut, fee);
@@ -622,7 +622,7 @@ contract GNad is IGNad {
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getCurveData(bcFactory, token);
 
         uint256 fee = msg.value;
         checkFee(curve, amountOut, fee);
