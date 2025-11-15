@@ -22,15 +22,6 @@ contract FeeVault is IFeeVault {
     uint256 public ownerCount;
     uint256 public proposalCount;
 
-    // Withdrawal proposal structure
-    struct WithdrawalProposal {
-        address receiver;
-        uint256 amount;
-        uint256 signatureCount;
-        mapping(address => bool) hasSignedWithdrawal;
-        bool executed;
-    }
-
     /**
      * @notice Fallback function to receive WMON
      * @dev Only accepts WMON from the WMON contract

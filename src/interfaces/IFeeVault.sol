@@ -6,6 +6,15 @@ pragma solidity ^0.8.13;
  * @dev Interface for the FeeVault contract that manages WNAD token withdrawals through multisig.
  */
 interface IFeeVault {
+    // Withdrawal proposal structure
+    struct WithdrawalProposal {
+        address receiver;
+        uint256 amount;
+        uint256 signatureCount;
+        mapping(address => bool) hasSignedWithdrawal;
+        bool executed;
+    }
+    
     /**
      * @dev Emitted when a new owner is added
      */
