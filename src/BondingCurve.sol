@@ -2,24 +2,16 @@
 pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {
-    IUniswapV2Factory
-} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import {
-    IUniswapV2Pair
-} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import {
-    IUniswapV2ERC20
-} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IUniswapV2Factory} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import {IUniswapV2Pair} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import {IUniswapV2ERC20} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol";
 
 import {IToken} from "./interfaces/IToken.sol";
 import {IGNad} from "./interfaces/IGNad.sol";
 import {IBondingCurveFactory} from "./interfaces/IBondingCurveFactory.sol";
 import {IBondingCurve} from "./interfaces/IBondingCurve.sol";
-import * as CustomErrors from "./errors/CustomErrors.sol";
+import "./errors/CustomErrors.sol" as CustomErrors;
 
 /**
  * @title BondingCurve
@@ -117,10 +109,7 @@ contract BondingCurve is IBondingCurve {
         realNativeReserves = IERC20(WMON).balanceOf(address(this));
         realTokenReserves = IERC20(_token).balanceOf(address(this));
         lockedToken = _lockedToken;
-        feeConfig = Fee({
-            denominator: _feeDenominator,
-            numerator: _feeNumerator
-        });
+        feeConfig = Fee({denominator: _feeDenominator, numerator: _feeNumerator});
         isListing = false;
     }
 
@@ -135,24 +124,15 @@ contract BondingCurve is IBondingCurve {
         address _wMon = WMON; //gas savings
         address _token = token; //gas savings
 
-        (
-            uint256 _realNativeReserves,
-            uint256 _realTokenReserves
-        ) = getReserves();
+        (uint256 _realNativeReserves, uint256 _realTokenReserves) = getReserves();
 
         // Ensure remaining tokens stay above target
-        require(
-            _realTokenReserves - amountOut >= lockedToken,
-            CustomErrors.INVALID_LOCKED_AMOUNT
-        );
+        require(_realTokenReserves - amountOut >= lockedToken, CustomErrors.INVALID_LOCKED_AMOUNT);
 
         uint256 balanceWNative;
 
         {
-            require(
-                to != _wMon && to != _token,
-                CustomErrors.INVALID_RECIPIENT
-            );
+            require(to != _wMon && to != _token, CustomErrors.INVALID_RECIPIENT);
             IERC20(_token).safeTransfer(GNAD, amountOut);
 
             balanceWNative = IERC20(_wMon).balanceOf(address(this));
@@ -176,22 +156,13 @@ contract BondingCurve is IBondingCurve {
 
         address _wMon = WMON;
         address _token = token;
-        (
-            uint256 _realNativeReserves,
-            uint256 _realTokenReserves
-        ) = getReserves();
-        require(
-            amountOut <= _realNativeReserves,
-            CustomErrors.INVALID_AMOUNT_OUT
-        );
+        (uint256 _realNativeReserves, uint256 _realTokenReserves) = getReserves();
+        require(amountOut <= _realNativeReserves, CustomErrors.INVALID_AMOUNT_OUT);
 
         uint256 balanceToken;
 
         {
-            require(
-                to != _wMon && to != _token,
-                CustomErrors.INVALID_RECIPIENT
-            );
+            require(to != _wMon && to != _token, CustomErrors.INVALID_RECIPIENT);
             IERC20(_wMon).safeTransfer(GNAD, amountOut);
             balanceToken = IERC20(_token).balanceOf(address(this));
         }
@@ -213,25 +184,16 @@ contract BondingCurve is IBondingCurve {
         require(lock == true, CustomErrors.INVALID_IT_IS_UNLOCKED);
         require(!isListing, CustomErrors.INVALID_ALREADY_LISTED);
         IBondingCurveFactory _factory = IBondingCurveFactory(FACTORY);
-        pair = IUniswapV2Factory(_factory.getDexFactory()).createPair(
-            WMON,
-            token
-        );
+        pair = IUniswapV2Factory(_factory.getDexFactory()).createPair(WMON, token);
         uint256 listingFee = _factory.getListingFee();
 
         // A token equivalent to the native token consumed as a listing fee is burned.
         // Transfer remaining tokens to the pair
         uint256 burnTokenAmount;
         {
-            burnTokenAmount =
-                realTokenReserves -
-                ((realNativeReserves - listingFee) * virtualToken) /
-                virtualNative;
+            burnTokenAmount = realTokenReserves - ((realNativeReserves - listingFee) * virtualToken) / virtualNative;
             IToken(token).burn(burnTokenAmount);
-            IERC20(WMON).safeTransfer(
-                IGNad(_factory.getGNad()).getFeeVault(),
-                listingFee
-            );
+            IERC20(WMON).safeTransfer(IGNad(_factory.getGNad()).getFeeVault(), listingFee);
         }
 
         uint256 listingNativeAmount = IERC20(WMON).balanceOf(address(this));
@@ -246,14 +208,7 @@ contract BondingCurve is IBondingCurve {
 
         IUniswapV2ERC20(pair).transfer(address(0), liquidity);
         isListing = true;
-        emit Listing(
-            address(this),
-            token,
-            pair,
-            listingNativeAmount,
-            listingTokenAmount,
-            liquidity
-        );
+        emit Listing(address(this), token, pair, listingNativeAmount, listingTokenAmount, liquidity);
         return pair;
     }
 
@@ -276,13 +231,7 @@ contract BondingCurve is IBondingCurve {
             virtualToken += amountIn;
         }
 
-        emit Sync(
-            token,
-            realNativeReserves,
-            realTokenReserves,
-            virtualNative,
-            virtualToken
-        );
+        emit Sync(token, realNativeReserves, realTokenReserves, virtualNative, virtualToken);
     }
 
     function _checkTarget() private {
@@ -299,12 +248,7 @@ contract BondingCurve is IBondingCurve {
      * @return nativeReserves The current real Native reserves
      * @return tokenReserves The current real token reserves
      */
-    function getReserves()
-        public
-        view
-        override
-        returns (uint256 nativeReserves, uint256 tokenReserves)
-    {
+    function getReserves() public view override returns (uint256 nativeReserves, uint256 tokenReserves) {
         return (realNativeReserves, realTokenReserves);
     }
 
@@ -327,11 +271,7 @@ contract BondingCurve is IBondingCurve {
      * @return denominator The fee denominator
      * @return numerator The fee numerator
      */
-    function getFeeConfig()
-        external
-        view
-        returns (uint8 denominator, uint16 numerator)
-    {
+    function getFeeConfig() external view returns (uint8 denominator, uint16 numerator) {
         return (feeConfig.denominator, feeConfig.numerator);
     }
 

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.20;
 
-import {
-    ERC20Permit
-} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IWMon} from "./interfaces/IWMon.sol";
 
@@ -33,15 +31,12 @@ contract WMon is ERC20Permit, IWMon {
         emit Withdrawal(msg.sender, amount);
     }
 
-    function nonces(
-        address owner
-    ) public view virtual override(ERC20Permit) returns (uint256) {
+    function nonces(address owner) public view virtual override(ERC20Permit) returns (uint256) {
         return super.nonces(owner);
     }
 
     function permitTypeHash() public pure virtual returns (bytes32 x) {
-        bytes
-            memory _input = "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)";
+        bytes memory _input = "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)";
         assembly {
             x := keccak256(add(_input, 0x20), mload(_input))
         }

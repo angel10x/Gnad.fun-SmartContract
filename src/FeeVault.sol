@@ -45,11 +45,7 @@ contract FeeVault is IFeeVault {
      * @param _owners Initial list of owner addresses
      * @param _requiredSignatures Number of signatures required for withdrawal
      */
-    constructor(
-        address _wMon,
-        address[] memory _owners,
-        uint256 _requiredSignatures
-    ) {
+    constructor(address _wMon, address[] memory _owners, uint256 _requiredSignatures) {
         require(_wMon != address(0), "ERR_FEE_VAULT_INVALID_WMON_ADDRESS");
         require(_owners.length > 0, "ERR_FEE_VAULT_NO_OWNERS");
         require(
@@ -90,10 +86,7 @@ contract FeeVault is IFeeVault {
      * @param receiver Address to receive the withdrawn assets
      * @param amount Amount of WMON to withdraw
      */
-    function proposeWithdrawal(
-        address receiver,
-        uint256 amount
-    ) external onlyOwner {
+    function proposeWithdrawal(address receiver, uint256 amount) external onlyOwner {
         require(receiver != address(0), "ERR_FEE_VAULT_INVALID_RECEIVER");
         require(amount > 0, "ERR_FEE_VAULT_INVALID_AMOUNT");
         require(amount <= totalAssets(), "ERR_FEE_VAULT_INSUFFICIENT_BALANCE");
@@ -115,15 +108,9 @@ contract FeeVault is IFeeVault {
      */
     function signWithdrawal(uint256 proposalId) external onlyOwner {
         WithdrawalProposal storage proposal = withdrawalProposals[proposalId];
-        require(
-            proposal.receiver != address(0),
-            "ERR_FEE_VAULT_INVALID_PROPOSAL"
-        );
+        require(proposal.receiver != address(0), "ERR_FEE_VAULT_INVALID_PROPOSAL");
         require(!proposal.executed, "ERR_FEE_VAULT_ALREADY_EXECUTED");
-        require(
-            !proposal.hasSignedWithdrawal[msg.sender],
-            "ERR_FEE_VAULT_ALREADY_SIGNED"
-        );
+        require(!proposal.hasSignedWithdrawal[msg.sender], "ERR_FEE_VAULT_ALREADY_SIGNED");
 
         proposal.hasSignedWithdrawal[msg.sender] = true;
         proposal.signatureCount++;
@@ -142,11 +129,7 @@ contract FeeVault is IFeeVault {
      * @param proposalId ID of the withdrawal proposal
      * @param amount Amount of WMON to withdraw
      */
-    function _executeWithdrawal(
-        address receiver,
-        uint256 proposalId,
-        uint256 amount
-    ) private {
+    function _executeWithdrawal(address receiver, uint256 proposalId, uint256 amount) private {
         IWMon(WMON).withdraw(amount);
 
         emit WithdrawalExecuted(proposalId, receiver, amount);
