@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.13;
 
 interface IGNad {
-    event NadFunCreate();
-    event NadFunBuy();
-    event NadFunSell();
+    event GNadCreate();
+    event GNadBuy();
+    event GNadSell();
 
-    function createCurve(
+    function createBc(
         address creator,
         string memory name,
         string memory symbol,
@@ -16,7 +16,7 @@ interface IGNad {
     )
         external
         payable
-        returns (address curve, address token, uint256 virtualNative, uint256 virtualToken, uint256 amountOut);
+        returns (address bc, address token, uint256 virtualNative, uint256 virtualToken, uint256 amountOut);
 
     function buy(uint256 amountIn, uint256 fee, address token, address to, uint256 deadline) external payable;
 
@@ -77,12 +77,12 @@ interface IGNad {
         bytes32 s
     ) external payable;
 
-    function getCurveData(address _factory, address token)
+    function getBcData(address _factory, address token)
         external
         view
-        returns (address curve, uint256 virtualNative, uint256 virtualToken, uint256 k);
+        returns (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k);
 
-    function getCurveData(address curve)
+    function getBcData(address bc)
         external
         view
         returns (uint256 virtualNative, uint256 virtualToken, uint256 k);

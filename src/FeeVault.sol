@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.28;
-
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+pragma solidity ^0.8.13;
 
 import {IFeeVault} from "./interfaces/IFeeVault.sol";
 import {IWMon} from "./interfaces/IWMon.sol";
@@ -13,7 +11,7 @@ import {IWMon} from "./interfaces/IWMon.sol";
  */
 contract FeeVault is IFeeVault {
     // WMon token interface
-    IWMon public immutable wMon;
+    IWMon public immutable WMON;
 
     // Multisig related state variables
     mapping(address => bool) public isOwner;
@@ -38,7 +36,7 @@ contract FeeVault is IFeeVault {
      * @dev Only accepts WMON from the WMON contract
      */
     receive() external payable {
-        assert(msg.sender == address(wMon)); // only accept WMON via fallback from the WMON contract
+        assert(msg.sender == address(WMON)); // only accept WMON via fallback from the WMON contract
     }
 
     /**
@@ -59,7 +57,7 @@ contract FeeVault is IFeeVault {
             "ERR_FEE_VAULT_INVALID_SIGNATURES_REQUIRED"
         );
 
-        wMon = IWMon(_wMon);
+        WMON = IWMon(_wMon);
 
         for (uint256 i = 0; i < _owners.length; i++) {
             require(_owners[i] != address(0), "ERR_FEE_VAULT_INVALID_OWNER");
@@ -76,7 +74,7 @@ contract FeeVault is IFeeVault {
      * @dev Returns the total balance of WMON in the vault
      */
     function totalAssets() public view returns (uint256) {
-        return wMon.balanceOf(address(this));
+        return WMON.balanceOf(address(this));
     }
 
     /**
@@ -149,7 +147,7 @@ contract FeeVault is IFeeVault {
         uint256 proposalId,
         uint256 amount
     ) private {
-        IWMon(wMon).withdraw(amount);
+        IWMon(WMON).withdraw(amount);
 
         emit WithdrawalExecuted(proposalId, receiver, amount);
     }

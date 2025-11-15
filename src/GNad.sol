@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {
     IERC20Permit
 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
-import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {
     SafeERC20
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -16,22 +15,22 @@ import {IWMon} from "./interfaces/IWMon.sol";
 import {IGNad} from "./interfaces/IGNad.sol";
 import {BCLib} from "./lib/BCLib.sol";
 import {TransferLib} from "./lib/Transfer.sol";
-import "./errors/CustomErrors.sol";
+import * as CustomErrors from "./errors/CustomErrors.sol";
 
 /**
  * @title Gnad
  * @notice Main contract for managing bonding curve operations and Native token interactions
- * @dev Handles creation of bonding curves, buying and selling operations with various payment mNativeods
+ * @dev Handles creation of bonding curves, buying and selling operations with various payment methods
  */
 contract GNad is IGNad {
     using SafeERC20 for IERC20;
     /// @notice Address of the bonding curve factory contract
 
-    address public factory;
+    address public bcFactory;
     /// @notice Address of the wrapped Native token
-    address public immutable wMon;
+    address public immutable WMON;
     /// @notice ERC4626 vault contract for fee collection
-    IFeeVault public immutable vault;
+    IFeeVault public immutable VAULT;
     bool isInitialized = false;
 
     /**
@@ -41,16 +40,16 @@ contract GNad is IGNad {
      * @param _vault Address of the fee collection vault
      */
     constructor(address _wMon, address _vault) {
-        wMon = _wMon;
-        vault = IFeeVault(_vault);
+        WMON = _wMon;
+        VAULT = IFeeVault(_vault);
     }
 
     /**
      * @notice Fallback function to receive Native token
-     * @dev Only accepts Native token from the wMon contract
+     * @dev Only accepts Native token from the WMON contract
      */
     receive() external payable {
-        assert(msg.sender == wMon); // only accept Native via fallback from the wMon contract
+        assert(msg.sender == WMON); // only accept WMON via fallback from the WMON contract
     }
 
     /**
@@ -58,13 +57,13 @@ contract GNad is IGNad {
      * @param deadline Timestamp before which the function must be called
      */
     modifier ensure(uint256 deadline) {
-        require(deadline >= block.timestamp, TIME_EXPIRED);
+        require(deadline >= block.timestamp, CustomErrors.TIME_EXPIRED);
         _;
     }
 
-    function initialize(address _factory) external {
-        require(!isInitialized, ALREADY_INITIALIZED);
-        factory = _factory;
+    function initialize(address _bcFactory) external {
+        require(!isInitialized, CustomErrors.ALREADY_INITIALIZED);
+        bcFactory = _bcFactory;
         isInitialized = true;
     }
 
@@ -79,9 +78,8 @@ contract GNad is IGNad {
         uint256 amount,
         uint256 fee
     ) internal view {
-        uint8 denominator = 255;
-        uint16 numerator = 1;
-        require(fee >= (amount * denominator) / numerator, INVALID_FEE);
+        (uint8 denominator, uint16 numerator) = IBondingCurve(curve).getFeeConfig();
+        require(fee >= (amount * denominator) / numerator, CustomErrors.INVALID_FEE);
     }
 
     /**
@@ -89,24 +87,24 @@ contract GNad is IGNad {
      * @param fee Amount of fee to send
      */
     function sendFeeByVault(uint256 fee) internal {
-        IERC20(wMon).safeTransfer(address(vault), fee);
+        IERC20(WMON).safeTransfer(address(VAULT), fee);
     }
 
     /**
      * @notice Creates a new bonding curve with initial liquidity
-     * @param creator Address of the curve creator
+     * @param creator Address of the bc creator
      * @param name Name of the token
      * @param symbol Symbol of the token
      * @param tokenURI URI for token metadata
      * @param amountIn Initial Native amount
      * @param fee Fee amount for the creation
-     * @return curve Address of the created bonding curve
+     * @return bc Address of the created bonding curve
      * @return token Address of the created token
      * @return virtualNative Initial virtual Native reserve
      * @return virtualToken Initial virtual token reserve
      * @return amountOut Amount of tokens received
      */
-    function createCurve(
+    function createBc(
         address creator,
         string memory name,
         string memory symbol,
@@ -117,32 +115,32 @@ contract GNad is IGNad {
         external
         payable
         returns (
-            address curve,
+            address bc,
             address token,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 amountOut
         )
     {
-        uint256 _deployFee = IBondingCurveFactory(factory).getDelpyFee();
-        require(msg.value >= amountIn + fee + _deployFee, INVALID_MON_AMOUNT);
+        uint256 _deployFee = IBondingCurveFactory(bcFactory).getDelpyFee();
+        require(msg.value >= amountIn + fee + _deployFee, CustomErrors.INVALID_MON_AMOUNT);
 
-        (curve, token, virtualNative, virtualToken) = IBondingCurveFactory(
-            factory
+        (bc, token, virtualNative, virtualToken) = IBondingCurveFactory(
+            bcFactory
         ).create(creator, name, symbol, tokenURI);
 
-        IWMon(wMon).deposit{value: amountIn + fee + _deployFee}();
+        IWMon(WMON).deposit{value: amountIn + fee + _deployFee}();
 
         if (amountIn > 0) {
-            checkFee(curve, amountIn, fee);
+            checkFee(bc, amountIn, fee);
             sendFeeByVault(fee + _deployFee);
             uint256 k = virtualNative * virtualToken;
             amountOut = getAmountOut(amountIn, k, virtualNative, virtualToken);
-            IERC20(wMon).safeTransfer(curve, amountIn);
-            // IBondingCurve(curve).buy(creator, amountOut);
+            IERC20(WMON).safeTransfer(bc, amountIn);
+            IBondingCurve(bc).buy(creator, amountOut);
             IERC20(token).safeTransfer(creator, amountOut);
             return (
-                curve,
+                bc,
                 token,
                 virtualNative + amountIn,
                 virtualToken - amountOut,
@@ -150,8 +148,8 @@ contract GNad is IGNad {
             );
         }
         sendFeeByVault(_deployFee);
-        emit NadFunCreate();
-        return (curve, token, virtualNative, virtualToken, amountOut);
+        emit GNadCreate();
+        return (bc, token, virtualNative, virtualToken, amountOut);
     }
 
     //----------------------------Buy Functions ---------------------------------------------------
@@ -170,17 +168,17 @@ contract GNad is IGNad {
         address to,
         uint256 deadline
     ) external payable ensure(deadline) {
-        require(msg.value >= amountIn + fee, INVALID_MON_AMOUNT);
-        require(amountIn > 0, INVALID_AMOUNT_IN);
-        require(fee > 0, INVALID_FEE);
+        require(msg.value >= amountIn + fee, CustomErrors.INVALID_MON_AMOUNT);
+        require(amountIn > 0, CustomErrors.INVALID_AMOUNT_IN);
+        require(fee > 0, CustomErrors.INVALID_FEE);
 
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
-        checkFee(curve, amountIn, fee);
+        ) = getBcData(bcFactory, token);
+        checkFee(bc, amountIn, fee);
 
         // Calculate and verify amountOut
         uint256 amountOut = getAmountOut(
@@ -190,17 +188,17 @@ contract GNad is IGNad {
             virtualToken
         );
         {
-            IWMon(wMon).deposit{value: amountIn + fee}();
+            IWMon(WMON).deposit{value: amountIn + fee}();
 
             sendFeeByVault(fee);
 
-            IERC20(wMon).safeTransfer(curve, amountIn);
+            IERC20(WMON).safeTransfer(bc, amountIn);
 
-            // IBondingCurve(curve).buy(to, amountOut);
+            IBondingCurve(bc).buy(to, amountOut);
 
             IERC20(token).safeTransfer(to, amountOut);
         }
-        emit NadFunBuy();
+        emit GNadBuy();
     }
 
     /**
@@ -220,15 +218,15 @@ contract GNad is IGNad {
         address to,
         uint256 deadline
     ) external payable ensure(deadline) {
-        require(msg.value >= amountIn + fee, INVALID_MON_AMOUNT);
+        require(msg.value >= amountIn + fee, CustomErrors.INVALID_MON_AMOUNT);
 
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
-        checkFee(curve, amountIn, fee);
+        ) = getBcData(bcFactory, token);
+        checkFee(bc, amountIn, fee);
 
         uint256 amountOut = getAmountOut(
             amountIn,
@@ -237,17 +235,17 @@ contract GNad is IGNad {
             virtualToken
         );
 
-        require(amountOut >= amountOutMin, INVALID_AMOUNT_OUT);
+        require(amountOut >= amountOutMin, CustomErrors.INVALID_AMOUNT_OUT);
         {
-            IWMon(wMon).deposit{value: amountIn + fee}();
+            IWMon(WMON).deposit{value: amountIn + fee}();
 
             sendFeeByVault(fee);
-            IERC20(wMon).safeTransfer(curve, amountIn);
+            IERC20(WMON).safeTransfer(bc, amountIn);
 
-            // IBondingCurve(curve).buy(to, amountOut);
+            IBondingCurve(bc).buy(to, amountOut);
             IERC20(token).safeTransfer(to, amountOut);
         }
-        emit NadFunBuy();
+        emit GNadBuy();
     }
 
     /**
@@ -265,14 +263,14 @@ contract GNad is IGNad {
         address to,
         uint256 deadline
     ) external payable ensure(deadline) {
-        require(msg.value >= amountInMax, INVALID_AMOUNT_OUT);
+        require(msg.value >= amountInMax, CustomErrors.INVALID_AMOUNT_OUT);
 
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getBcData(bcFactory, token);
         uint256 amountIn = getAmountIn(
             amountOut,
             k,
@@ -280,23 +278,24 @@ contract GNad is IGNad {
             virtualToken
         );
 
-        uint8 denominator = 255;
-        uint16 numerator = 1;
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
+            .getFeeConfig();
 
         uint256 fee = BCLib.getFeeAmount(amountIn, denominator, numerator);
 
-        require(amountIn + fee <= amountInMax, INVALID_AMOUNT_IN_MAX);
+        require(amountIn + fee <= amountInMax, CustomErrors.INVALID_AMOUNT_IN_MAX);
         {
-            IWMon(wMon).deposit{value: amountIn + fee}();
+            IWMon(WMON).deposit{value: amountIn + fee}();
             sendFeeByVault(fee);
-            IERC20(wMon).safeTransfer(curve, amountIn);
+            IERC20(WMON).safeTransfer(bc, amountIn);
+            IBondingCurve(bc).buy(to, amountOut);
             IERC20(token).safeTransfer(to, amountOut);
             uint256 restValue = amountInMax - (amountIn + fee);
             if (restValue > 0) {
                 TransferLib.safeTransferNative(msg.sender, restValue);
             }
         }
-        emit NadFunBuy();
+        emit GNadBuy();
     }
 
     // //-------------Sell Functions ---------------------------------------------
@@ -315,18 +314,18 @@ contract GNad is IGNad {
         address to,
         uint256 deadline
     ) external ensure(deadline) {
-        require(amountIn > 0, INVALID_AMOUNT_IN);
+        require(amountIn > 0, CustomErrors.INVALID_AMOUNT_IN);
 
         require(
             IERC20(token).allowance(msg.sender, address(this)) >= amountIn,
-            INVALID_ALLOWANCE
+            CustomErrors.INVALID_ALLOWANCE
         );
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getBcData(bcFactory, token);
 
         uint256 amountOut = getAmountOut(
             amountIn,
@@ -335,14 +334,15 @@ contract GNad is IGNad {
             virtualNative
         );
 
-        uint8 denominator = 255;
-        uint16 numerator = 1;
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
+            .getFeeConfig();
 
         uint256 fee = BCLib.getFeeAmount(amountOut, denominator, numerator);
         {
-            IERC20(token).safeTransferFrom(msg.sender, curve, amountIn);
+            IERC20(token).safeTransferFrom(msg.sender, bc, amountIn);
+            IBondingCurve(bc).sell(to, amountOut);
             sendFeeByVault(fee);
-            IWMon(wMon).withdraw(amountOut - fee);
+            IWMon(WMON).withdraw(amountOut - fee);
 
             TransferLib.safeTransferNative(to, amountOut - fee);
         }
@@ -380,11 +380,11 @@ contract GNad is IGNad {
         );
 
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getBcData(bcFactory, token);
 
         uint256 amountOut = getAmountOut(
             amountIn,
@@ -393,21 +393,18 @@ contract GNad is IGNad {
             virtualNative
         );
 
-        uint8 denominator = 255;
-        uint16 numerator = 1;
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
+            .getFeeConfig();
 
         uint256 fee = BCLib.getFeeAmount(amountOut, denominator, numerator);
         {
-            IERC20(token).safeTransferFrom(from, curve, amountIn);
-
-
+            IERC20(token).safeTransferFrom(from, bc, amountIn);
+            IBondingCurve(bc).sell(to, amountOut);
             sendFeeByVault(fee);
-
-            IWMon(wMon).withdraw(amountOut - fee);
-
+            IWMon(WMON).withdraw(amountOut - fee);
             TransferLib.safeTransferNative(to, amountOut - fee);
         }
-        emit NadFunSell();
+        emit GNadSell();
     }
 
     /**
@@ -425,16 +422,16 @@ contract GNad is IGNad {
         address to,
         uint256 deadline
     ) external ensure(deadline) {
-        require(amountIn > 0, INVALID_AMOUNT_IN);
+        require(amountIn > 0, CustomErrors.INVALID_AMOUNT_IN);
         uint256 allowance = IERC20(token).allowance(msg.sender, address(this));
-        require(allowance >= amountIn, INVALID_ALLOWANCE);
+        require(allowance >= amountIn, CustomErrors.INVALID_ALLOWANCE);
 
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getBcData(bcFactory, token);
 
         uint256 amountOut = getAmountOut(
             amountIn,
@@ -443,21 +440,19 @@ contract GNad is IGNad {
             virtualNative
         );
 
-        uint8 denominator = 255;
-        uint16 numerator = 1;
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
+            .getFeeConfig();
         uint256 fee = BCLib.getFeeAmount(amountOut, denominator, numerator);
 
-        require(amountOut - fee >= amountOutMin, INVALID_AMOUNT_OUT);
+        require(amountOut - fee >= amountOutMin, CustomErrors.INVALID_AMOUNT_OUT);
         {
-            IERC20(token).safeTransferFrom(msg.sender, curve, amountIn);
-
+            IERC20(token).safeTransferFrom(msg.sender, bc, amountIn);
+            IBondingCurve(bc).sell(to, amountOut);
             sendFeeByVault(fee);
-
-            IWMon(wMon).withdraw(amountOut - fee);
-
+            IWMon(WMON).withdraw(amountOut - fee);
             TransferLib.safeTransferNative(to, amountOut - fee);
         }
-        emit NadFunSell();
+        emit GNadSell();
     }
 
     /**
@@ -484,7 +479,7 @@ contract GNad is IGNad {
         bytes32 s
     ) external ensure(deadline) {
         // EIP-2612 permit: approve by signature
-        require(amountIn > 0, INVALID_AMOUNT_IN);
+        require(amountIn > 0, CustomErrors.INVALID_AMOUNT_IN);
         IERC20Permit(token).permit(
             from,
             address(this),
@@ -496,13 +491,13 @@ contract GNad is IGNad {
         );
         // Safe transfer the token from user to this contract
 
-        // Get curve and reserves
+        // Get bc and reserves
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getBcData(bcFactory, token);
 
         // Calculate and verify amountOut
         uint256 amountOut = getAmountOut(
@@ -511,24 +506,19 @@ contract GNad is IGNad {
             virtualToken,
             virtualNative
         );
-        uint8 denominator = 255;
-        uint16 numerator = 1;
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc).getFeeConfig();
         uint256 fee = BCLib.getFeeAmount(amountOut, denominator, numerator);
 
-        require(amountOut - fee >= amountOutMin, INVALID_AMOUNT_OUT);
+        require(amountOut - fee >= amountOutMin, CustomErrors.INVALID_AMOUNT_OUT);
         {
-            IERC20(token).safeTransferFrom(from, curve, amountIn);
-
+            IERC20(token).safeTransferFrom(from, bc, amountIn);
+            IBondingCurve(bc).sell(to, amountOut);
             sendFeeByVault(fee);
-
-            IWMon(wMon).withdraw(amountOut - fee);
-
+            IWMon(WMON).withdraw(amountOut - fee);
             TransferLib.safeTransferNative(to, amountOut - fee);
         }
-        emit NadFunSell();
+        emit GNadSell();
     }
-
-    //amountOut 은 fee + amountOut 이어야함.
 
     /**
      * @notice Sells tokens for an exact amount of Native on the bonding curve
@@ -545,22 +535,22 @@ contract GNad is IGNad {
         address to,
         uint256 deadline
     ) external payable ensure(deadline) {
-        require(amountInMax > 0, INVALID_AMOUNT_IN);
+        require(amountInMax > 0, CustomErrors.INVALID_AMOUNT_IN);
 
         require(
             IERC20(token).allowance(msg.sender, address(this)) >= amountInMax,
-            INVALID_ALLOWANCE
+            CustomErrors.INVALID_ALLOWANCE
         );
 
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getBcData(bcFactory, token);
 
         uint256 fee = msg.value;
-        checkFee(curve, amountOut, fee);
+        checkFee(bc, amountOut, fee);
 
         uint256 amountIn = getAmountIn(
             amountOut,
@@ -569,18 +559,16 @@ contract GNad is IGNad {
             virtualNative
         );
 
-        require(amountIn <= amountInMax, INVALID_AMOUNT_IN_MAX);
+        require(amountIn <= amountInMax, CustomErrors.INVALID_AMOUNT_IN_MAX);
         {
-            IWMon(wMon).deposit{value: fee}();
+            IWMon(WMON).deposit{value: fee}();
             sendFeeByVault(fee);
-
-            IERC20(token).safeTransferFrom(msg.sender, curve, amountIn);
-
-            IWMon(wMon).withdraw(amountOut);
-
+            IERC20(token).safeTransferFrom(msg.sender, bc, amountIn);
+            IBondingCurve(bc).sell(to, amountOut);
+            IWMon(WMON).withdraw(amountOut);
             TransferLib.safeTransferNative(to, amountOut);
         }
-        emit NadFunSell();
+        emit GNadSell();
     }
 
     /**
@@ -606,7 +594,7 @@ contract GNad is IGNad {
         bytes32 r,
         bytes32 s
     ) external payable ensure(deadline) {
-        require(amountInMax > 0, INVALID_AMOUNT_IN_MAX);
+        require(amountInMax > 0, CustomErrors.INVALID_AMOUNT_IN_MAX);
         IERC20Permit(token).permit(
             from,
             address(this),
@@ -618,14 +606,14 @@ contract GNad is IGNad {
         );
 
         (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
-        ) = getCurveData(factory, token);
+        ) = getBcData(bcFactory, token);
 
         uint256 fee = msg.value;
-        checkFee(curve, amountOut, fee);
+        checkFee(bc, amountOut, fee);
 
         uint256 amountIn = getAmountIn(
             amountOut,
@@ -633,63 +621,63 @@ contract GNad is IGNad {
             virtualToken,
             virtualNative
         );
-        require(amountIn <= amountInMax, INVALID_AMOUNT_IN_MAX);
+        require(amountIn <= amountInMax, CustomErrors.INVALID_AMOUNT_IN_MAX);
         {
-            IWMon(wMon).deposit{value: fee}();
+            IWMon(WMON).deposit{value: fee}();
             sendFeeByVault(fee);
-
-            IERC20(token).safeTransferFrom(msg.sender, curve, 1);
-        
-            IWMon(wMon).withdraw(amountOut);
+            IERC20(token).safeTransferFrom(msg.sender, bc, 1);
+            IBondingCurve(bc).sell(to, amountOut);
+            IWMon(WMON).withdraw(amountOut);
+            TransferLib.safeTransferNative(to, amountOut);
         }
-        emit NadFunSell();
+        emit GNadSell();
     }
 
     //----------------------------Common Functions ---------------------------------------------------
 
     /**
-     * @notice Gets curve data from the factory
+     * @notice Gets bc data from the factory
      * @param _factory Factory contract address
      * @param token Token address
-     * @return curve Bonding curve address
+     * @return bc Bonding curve address
      * @return virtualNative Virtual Native reserve
      * @return virtualToken Virtual token reserve
      * @return k Constant product value
      */
-    function getCurveData(
+    function getBcData(
         address _factory,
         address token
     )
         public
         view
         returns (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
         )
     {
-        (curve, virtualNative, virtualToken, k) = BCLib.getCurveData(
+        (bc, virtualNative, virtualToken, k) = BCLib.getBcData(
             _factory,
             token
         );
     }
 
     /**
-     * @notice Gets curve data directly from a curve contract
-     * @param curve Bonding curve address
+     * @notice Gets bc data directly from a bc contract
+     * @param bc Bonding curve address
      * @return virtualNative Virtual Native reserve
      * @return virtualToken Virtual token reserve
      * @return k Constant product value
      */
-    function getCurveData(
-        address curve
+    function getBcData(
+        address bc
     )
         public
         view
         returns (uint256 virtualNative, uint256 virtualToken, uint256 k)
     {
-        (virtualNative, virtualToken, k) = BCLib.getCurveData(curve);
+        (virtualNative, virtualToken, k) = BCLib.getBcData(bc);
     }
 
     /**
@@ -731,6 +719,6 @@ contract GNad is IGNad {
      * @return Address of the vault
      */
     function getFeeVault() public view returns (address) {
-        return address(vault);
+        return address(VAULT);
     }
 }
