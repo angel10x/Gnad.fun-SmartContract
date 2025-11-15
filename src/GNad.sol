@@ -2,12 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {
-    IERC20Permit
-} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IBondingCurveFactory} from "./interfaces/IBondingCurveFactory.sol";
 import {IBondingCurve} from "./interfaces/IBondingCurve.sol";
 import {IFeeVault} from "./interfaces/IFeeVault.sol";
@@ -15,7 +11,7 @@ import {IWMon} from "./interfaces/IWMon.sol";
 import {IGNad} from "./interfaces/IGNad.sol";
 import {BCLib} from "./lib/BCLib.sol";
 import {TransferLib} from "./lib/Transfer.sol";
-import * as CustomErrors from "./errors/CustomErrors.sol";
+import "./errors/CustomErrors.sol" as CustomErrors;
 
 /**
  * @title Gnad
@@ -73,11 +69,7 @@ contract GNad is IGNad {
      * @param amount Base amount for fee calculation
      * @param fee Fee amount to validate
      */
-    function checkFee(
-        address curve,
-        uint256 amount,
-        uint256 fee
-    ) internal view {
+    function checkFee(address curve, uint256 amount, uint256 fee) internal view {
         (uint8 denominator, uint16 numerator) = IBondingCurve(curve).getFeeConfig();
         require(fee >= (amount * denominator) / numerator, CustomErrors.INVALID_FEE);
     }
@@ -114,20 +106,13 @@ contract GNad is IGNad {
     )
         external
         payable
-        returns (
-            address bc,
-            address token,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 amountOut
-        )
+        returns (address bc, address token, uint256 virtualNative, uint256 virtualToken, uint256 amountOut)
     {
         uint256 _deployFee = IBondingCurveFactory(bcFactory).getDelpyFee();
         require(msg.value >= amountIn + fee + _deployFee, CustomErrors.INVALID_MON_AMOUNT);
 
-        (bc, token, virtualNative, virtualToken) = IBondingCurveFactory(
-            bcFactory
-        ).create(creator, name, symbol, tokenURI);
+        (bc, token, virtualNative, virtualToken) =
+            IBondingCurveFactory(bcFactory).create(creator, name, symbol, tokenURI);
 
         IWMon(WMON).deposit{value: amountIn + fee + _deployFee}();
 
@@ -139,13 +124,7 @@ contract GNad is IGNad {
             IERC20(WMON).safeTransfer(bc, amountIn);
             IBondingCurve(bc).buy(creator, amountOut);
             IERC20(token).safeTransfer(creator, amountOut);
-            return (
-                bc,
-                token,
-                virtualNative + amountIn,
-                virtualToken - amountOut,
-                amountOut
-            );
+            return (bc, token, virtualNative + amountIn, virtualToken - amountOut, amountOut);
         }
         sendFeeByVault(_deployFee);
         emit GNadCreate();
@@ -161,32 +140,20 @@ contract GNad is IGNad {
      * @param to Address to receive the bought tokens
      * @param deadline Timestamp before which the transaction must be executed
      */
-    function buy(
-        uint256 amountIn,
-        uint256 fee,
-        address token,
-        address to,
-        uint256 deadline
-    ) external payable ensure(deadline) {
+    function buy(uint256 amountIn, uint256 fee, address token, address to, uint256 deadline)
+        external
+        payable
+        ensure(deadline)
+    {
         require(msg.value >= amountIn + fee, CustomErrors.INVALID_MON_AMOUNT);
         require(amountIn > 0, CustomErrors.INVALID_AMOUNT_IN);
         require(fee > 0, CustomErrors.INVALID_FEE);
 
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
         checkFee(bc, amountIn, fee);
 
         // Calculate and verify amountOut
-        uint256 amountOut = getAmountOut(
-            amountIn,
-            k,
-            virtualNative,
-            virtualToken
-        );
+        uint256 amountOut = getAmountOut(amountIn, k, virtualNative, virtualToken);
         {
             IWMon(WMON).deposit{value: amountIn + fee}();
 
@@ -220,20 +187,10 @@ contract GNad is IGNad {
     ) external payable ensure(deadline) {
         require(msg.value >= amountIn + fee, CustomErrors.INVALID_MON_AMOUNT);
 
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
         checkFee(bc, amountIn, fee);
 
-        uint256 amountOut = getAmountOut(
-            amountIn,
-            k,
-            virtualNative,
-            virtualToken
-        );
+        uint256 amountOut = getAmountOut(amountIn, k, virtualNative, virtualToken);
 
         require(amountOut >= amountOutMin, CustomErrors.INVALID_AMOUNT_OUT);
         {
@@ -256,30 +213,17 @@ contract GNad is IGNad {
      * @param to Address to receive the bought tokens
      * @param deadline Timestamp before which the transaction must be executed
      */
-    function exactOutBuy(
-        uint256 amountInMax,
-        uint256 amountOut,
-        address token,
-        address to,
-        uint256 deadline
-    ) external payable ensure(deadline) {
+    function exactOutBuy(uint256 amountInMax, uint256 amountOut, address token, address to, uint256 deadline)
+        external
+        payable
+        ensure(deadline)
+    {
         require(msg.value >= amountInMax, CustomErrors.INVALID_AMOUNT_OUT);
 
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
-        uint256 amountIn = getAmountIn(
-            amountOut,
-            k,
-            virtualNative,
-            virtualToken
-        );
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
+        uint256 amountIn = getAmountIn(amountOut, k, virtualNative, virtualToken);
 
-        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
-            .getFeeConfig();
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc).getFeeConfig();
 
         uint256 fee = BCLib.getFeeAmount(amountIn, denominator, numerator);
 
@@ -308,34 +252,15 @@ contract GNad is IGNad {
      * @param to Address to receive the Native
      * @param deadline Timestamp before which the transaction must be executed
      */
-    function sell(
-        uint256 amountIn,
-        address token,
-        address to,
-        uint256 deadline
-    ) external ensure(deadline) {
+    function sell(uint256 amountIn, address token, address to, uint256 deadline) external ensure(deadline) {
         require(amountIn > 0, CustomErrors.INVALID_AMOUNT_IN);
 
-        require(
-            IERC20(token).allowance(msg.sender, address(this)) >= amountIn,
-            CustomErrors.INVALID_ALLOWANCE
-        );
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
+        require(IERC20(token).allowance(msg.sender, address(this)) >= amountIn, CustomErrors.INVALID_ALLOWANCE);
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
 
-        uint256 amountOut = getAmountOut(
-            amountIn,
-            k,
-            virtualToken,
-            virtualNative
-        );
+        uint256 amountOut = getAmountOut(amountIn, k, virtualToken, virtualNative);
 
-        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
-            .getFeeConfig();
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc).getFeeConfig();
 
         uint256 fee = BCLib.getFeeAmount(amountOut, denominator, numerator);
         {
@@ -369,32 +294,13 @@ contract GNad is IGNad {
         bytes32 r,
         bytes32 s
     ) external {
-        IERC20Permit(token).permit(
-            from,
-            address(this),
-            amountIn,
-            deadline,
-            v,
-            r,
-            s
-        );
+        IERC20Permit(token).permit(from, address(this), amountIn, deadline, v, r, s);
 
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
 
-        uint256 amountOut = getAmountOut(
-            amountIn,
-            k,
-            virtualToken,
-            virtualNative
-        );
+        uint256 amountOut = getAmountOut(amountIn, k, virtualToken, virtualNative);
 
-        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
-            .getFeeConfig();
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc).getFeeConfig();
 
         uint256 fee = BCLib.getFeeAmount(amountOut, denominator, numerator);
         {
@@ -415,33 +321,19 @@ contract GNad is IGNad {
      * @param to Address to receive the Native
      * @param deadline Timestamp before which the transaction must be executed
      */
-    function protectSell(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address token,
-        address to,
-        uint256 deadline
-    ) external ensure(deadline) {
+    function protectSell(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
+        external
+        ensure(deadline)
+    {
         require(amountIn > 0, CustomErrors.INVALID_AMOUNT_IN);
         uint256 allowance = IERC20(token).allowance(msg.sender, address(this));
         require(allowance >= amountIn, CustomErrors.INVALID_ALLOWANCE);
 
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
 
-        uint256 amountOut = getAmountOut(
-            amountIn,
-            k,
-            virtualToken,
-            virtualNative
-        );
+        uint256 amountOut = getAmountOut(amountIn, k, virtualToken, virtualNative);
 
-        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
-            .getFeeConfig();
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc).getFeeConfig();
         uint256 fee = BCLib.getFeeAmount(amountOut, denominator, numerator);
 
         require(amountOut - fee >= amountOutMin, CustomErrors.INVALID_AMOUNT_OUT);
@@ -480,32 +372,14 @@ contract GNad is IGNad {
     ) external ensure(deadline) {
         // EIP-2612 permit: approve by signature
         require(amountIn > 0, CustomErrors.INVALID_AMOUNT_IN);
-        IERC20Permit(token).permit(
-            from,
-            address(this),
-            amountIn,
-            deadline,
-            v,
-            r,
-            s
-        );
+        IERC20Permit(token).permit(from, address(this), amountIn, deadline, v, r, s);
         // Safe transfer the token from user to this contract
 
         // Get bc and reserves
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
 
         // Calculate and verify amountOut
-        uint256 amountOut = getAmountOut(
-            amountIn,
-            k,
-            virtualToken,
-            virtualNative
-        );
+        uint256 amountOut = getAmountOut(amountIn, k, virtualToken, virtualNative);
         (uint8 denominator, uint16 numerator) = IBondingCurve(bc).getFeeConfig();
         uint256 fee = BCLib.getFeeAmount(amountOut, denominator, numerator);
 
@@ -528,36 +402,21 @@ contract GNad is IGNad {
      * @param to Address to receive the ETH
      * @param deadline Timestamp before which the transaction must be executed
      */
-    function exactOutSell(
-        uint256 amountInMax,
-        uint256 amountOut,
-        address token,
-        address to,
-        uint256 deadline
-    ) external payable ensure(deadline) {
+    function exactOutSell(uint256 amountInMax, uint256 amountOut, address token, address to, uint256 deadline)
+        external
+        payable
+        ensure(deadline)
+    {
         require(amountInMax > 0, CustomErrors.INVALID_AMOUNT_IN);
 
-        require(
-            IERC20(token).allowance(msg.sender, address(this)) >= amountInMax,
-            CustomErrors.INVALID_ALLOWANCE
-        );
+        require(IERC20(token).allowance(msg.sender, address(this)) >= amountInMax, CustomErrors.INVALID_ALLOWANCE);
 
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
 
         uint256 fee = msg.value;
         checkFee(bc, amountOut, fee);
 
-        uint256 amountIn = getAmountIn(
-            amountOut,
-            k,
-            virtualToken,
-            virtualNative
-        );
+        uint256 amountIn = getAmountIn(amountOut, k, virtualToken, virtualNative);
 
         require(amountIn <= amountInMax, CustomErrors.INVALID_AMOUNT_IN_MAX);
         {
@@ -595,32 +454,14 @@ contract GNad is IGNad {
         bytes32 s
     ) external payable ensure(deadline) {
         require(amountInMax > 0, CustomErrors.INVALID_AMOUNT_IN_MAX);
-        IERC20Permit(token).permit(
-            from,
-            address(this),
-            amountInMax,
-            deadline,
-            v,
-            r,
-            s
-        );
+        IERC20Permit(token).permit(from, address(this), amountInMax, deadline, v, r, s);
 
-        (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        ) = getBcData(bcFactory, token);
+        (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k) = getBcData(bcFactory, token);
 
         uint256 fee = msg.value;
         checkFee(bc, amountOut, fee);
 
-        uint256 amountIn = getAmountIn(
-            amountOut,
-            k,
-            virtualToken,
-            virtualNative
-        );
+        uint256 amountIn = getAmountIn(amountOut, k, virtualToken, virtualNative);
         require(amountIn <= amountInMax, CustomErrors.INVALID_AMOUNT_IN_MAX);
         {
             IWMon(WMON).deposit{value: fee}();
@@ -644,23 +485,12 @@ contract GNad is IGNad {
      * @return virtualToken Virtual token reserve
      * @return k Constant product value
      */
-    function getBcData(
-        address _factory,
-        address token
-    )
+    function getBcData(address _factory, address token)
         public
         view
-        returns (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        )
+        returns (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k)
     {
-        (bc, virtualNative, virtualToken, k) = BCLib.getBcData(
-            _factory,
-            token
-        );
+        (bc, virtualNative, virtualToken, k) = BCLib.getBcData(_factory, token);
     }
 
     /**
@@ -670,13 +500,7 @@ contract GNad is IGNad {
      * @return virtualToken Virtual token reserve
      * @return k Constant product value
      */
-    function getBcData(
-        address bc
-    )
-        public
-        view
-        returns (uint256 virtualNative, uint256 virtualToken, uint256 k)
-    {
+    function getBcData(address bc) public view returns (uint256 virtualNative, uint256 virtualToken, uint256 k) {
         (virtualNative, virtualToken, k) = BCLib.getBcData(bc);
     }
 
@@ -688,12 +512,11 @@ contract GNad is IGNad {
      * @param reserveOut Output reserve
      * @return amountOut Calculated output amount
      */
-    function getAmountOut(
-        uint256 amountIn,
-        uint256 k,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) public pure returns (uint256 amountOut) {
+    function getAmountOut(uint256 amountIn, uint256 k, uint256 reserveIn, uint256 reserveOut)
+        public
+        pure
+        returns (uint256 amountOut)
+    {
         amountOut = BCLib.getAmountOut(amountIn, k, reserveIn, reserveOut);
     }
 
@@ -705,12 +528,11 @@ contract GNad is IGNad {
      * @param reserveOut Output reserve
      * @return amountIn Required input amount
      */
-    function getAmountIn(
-        uint256 amountOut,
-        uint256 k,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) public pure returns (uint256 amountIn) {
+    function getAmountIn(uint256 amountOut, uint256 k, uint256 reserveIn, uint256 reserveOut)
+        public
+        pure
+        returns (uint256 amountIn)
+    {
         amountIn = BCLib.getAmountIn(amountOut, k, reserveIn, reserveOut);
     }
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {IBondingCurve} from "../interfaces/IBondingCurve.sol";
 import {IBondingCurveFactory} from "../interfaces/IBondingCurveFactory.sol";
-import * as CustomErrors from "../errors/CustomErrors.sol";
+import "../errors/CustomErrors.sol" as CustomErrors;
 
 /**
  * @title BCLib
@@ -21,16 +21,12 @@ library BCLib {
      * @param reserveOut Current reserve of output token
      * @return amountOut Amount of tokens to be output
      */
-    function getAmountOut(
-        uint256 amountIn,
-        uint256 k,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) internal pure returns (uint256 amountOut) {
-        require(
-            amountIn > 0 && reserveIn > 0 && reserveOut > 0,
-            CustomErrors.INVALID_INPUT_BC_LIBRARY
-        );
+    function getAmountOut(uint256 amountIn, uint256 k, uint256 reserveIn, uint256 reserveOut)
+        internal
+        pure
+        returns (uint256 amountOut)
+    {
+        require(amountIn > 0 && reserveIn > 0 && reserveOut > 0, CustomErrors.INVALID_INPUT_BC_LIBRARY);
 
         uint256 newReserveIn = reserveIn + amountIn;
 
@@ -49,12 +45,11 @@ library BCLib {
      * @param reserveOut Current reserve of output token
      * @return amountIn Required amount of input tokens
      */
-    function getAmountIn(
-        uint256 amountOut,
-        uint256 k,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) internal pure returns (uint256 amountIn) {
+    function getAmountIn(uint256 amountOut, uint256 k, uint256 reserveIn, uint256 reserveOut)
+        internal
+        pure
+        returns (uint256 amountIn)
+    {
         require(amountOut <= reserveOut, CustomErrors.INVALID_AMOUNT_OUT);
 
         uint256 newReserveOut = reserveOut - amountOut;
@@ -72,12 +67,12 @@ library BCLib {
      * @return fee Fee amount to be deducted
      * @return adjustedAmountOut Final output amount after fee deduction
      */
-    function getAmountAndFee(
-        address bc,
-        uint256 amountOut
-    ) internal view returns (uint256 fee, uint256 adjustedAmountOut) {
-        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
-            .getFeeConfig();
+    function getAmountAndFee(address bc, uint256 amountOut)
+        internal
+        view
+        returns (uint256 fee, uint256 adjustedAmountOut)
+    {
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc).getFeeConfig();
 
         fee = getFeeAmount(amountOut, denominator, numerator);
         adjustedAmountOut = amountOut - fee;
@@ -90,11 +85,7 @@ library BCLib {
      * @param numerator Fee numerator
      * @return fee Calculated fee amount
      */
-    function getFeeAmount(
-        uint256 amount,
-        uint8 denominator,
-        uint16 numerator
-    ) internal pure returns (uint256 fee) {
+    function getFeeAmount(uint256 amount, uint8 denominator, uint16 numerator) internal pure returns (uint256 fee) {
         fee = (amount * denominator) / numerator;
     }
 
@@ -107,18 +98,10 @@ library BCLib {
      * @return virtualToken Virtual token reserve
      * @return k Constant product k
      */
-    function getBcData(
-        address factory,
-        address token
-    )
+    function getBcData(address factory, address token)
         internal
         view
-        returns (
-            address bc,
-            uint256 virtualNative,
-            uint256 virtualToken,
-            uint256 k
-        )
+        returns (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k)
     {
         bc = getBc(factory, token);
         (virtualNative, virtualToken) = getVirtualReserves(bc);
@@ -132,13 +115,7 @@ library BCLib {
      * @return virtualToken Virtual token reserve
      * @return k Constant product k
      */
-    function getBcData(
-        address bc
-    )
-        internal
-        view
-        returns (uint256 virtualNative, uint256 virtualToken, uint256 k)
-    {
+    function getBcData(address bc) internal view returns (uint256 virtualNative, uint256 virtualToken, uint256 k) {
         (virtualNative, virtualToken) = getVirtualReserves(bc);
         k = getK(bc);
     }
@@ -158,10 +135,7 @@ library BCLib {
      * @param token Token address to look up
      * @return bc Address of the corresponding bonding curve
      */
-    function getBc(
-        address factory,
-        address token
-    ) internal view returns (address bc) {
+    function getBc(address factory, address token) internal view returns (address bc) {
         bc = IBondingCurveFactory(factory).getBc(token);
         return bc;
     }
@@ -172,9 +146,7 @@ library BCLib {
      * @return virtualNative Virtual NAD reserve
      * @return virtualToken Virtual token reserve
      */
-    function getVirtualReserves(
-        address bc
-    ) internal view returns (uint256 virtualNative, uint256 virtualToken) {
+    function getVirtualReserves(address bc) internal view returns (uint256 virtualNative, uint256 virtualToken) {
         (virtualNative, virtualToken) = IBondingCurve(bc).getVirtualReserves();
     }
 

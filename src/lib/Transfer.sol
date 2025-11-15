@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import * as CustomErrors from "../errors/CustomErrors.sol";
+import "../errors/CustomErrors.sol" as CustomErrors;
 
 /**
  * @title TransferLib
@@ -17,7 +17,7 @@ library TransferLib {
      * @param amount Amount of NATIVE to transfer in wei
      */
     function safeTransferNative(address to, uint256 amount) internal {
-        (bool success, ) = payable(to).call{value: amount, gas: 2300}("");
+        (bool success,) = payable(to).call{value: amount, gas: 2300}("");
         require(success, CustomErrors.TRANSFER_MON_FAILED);
     }
 }

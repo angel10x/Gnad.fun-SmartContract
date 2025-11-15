@@ -2,12 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {
-    ERC20Permit
-} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {
-    IERC20Permit
-} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IToken} from "./interfaces/IToken.sol";
 
@@ -21,12 +17,10 @@ contract Token is IToken, ERC20Permit {
     string public tokenURI;
     address private gNad;
 
-    constructor(
-        string memory name,
-        string memory symbol,
-        string memory _tokenURI,
-        address _gNad
-    ) ERC20(name, symbol) ERC20Permit(name) {
+    constructor(string memory name, string memory symbol, string memory _tokenURI, address _gNad)
+        ERC20(name, symbol)
+        ERC20Permit(name)
+    {
         tokenURI = _tokenURI;
         _minted = false;
         _factory = msg.sender;
@@ -45,15 +39,7 @@ contract Token is IToken, ERC20Permit {
         _burn(msg.sender, amount);
     }
 
-    function nonces(
-        address owner
-    )
-        public
-        view
-        virtual
-        override(ERC20Permit, IERC20Permit)
-        returns (uint256)
-    {
+    function nonces(address owner) public view virtual override(ERC20Permit, IERC20Permit) returns (uint256) {
         return super.nonces(owner);
     }
 
@@ -64,10 +50,7 @@ contract Token is IToken, ERC20Permit {
         }
     }
 
-    function transfer(
-        address to,
-        uint256 value
-    ) public virtual override(ERC20, IERC20) returns (bool) {
+    function transfer(address to, uint256 value) public virtual override(ERC20, IERC20) returns (bool) {
         _transfer(msg.sender, to, value);
 
         return true;

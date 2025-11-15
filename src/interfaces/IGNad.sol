@@ -46,8 +46,7 @@ interface IGNad {
         bytes32 s
     ) external;
 
-    function protectSell(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
-        external;
+    function protectSell(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline) external;
 
     function protectSellPermit(
         uint256 amountIn,
@@ -82,10 +81,7 @@ interface IGNad {
         view
         returns (address bc, uint256 virtualNative, uint256 virtualToken, uint256 k);
 
-    function getBcData(address bc)
-        external
-        view
-        returns (uint256 virtualNative, uint256 virtualToken, uint256 k);
+    function getBcData(address bc) external view returns (uint256 virtualNative, uint256 virtualToken, uint256 k);
 
     function getAmountOut(uint256 amountIn, uint256 k, uint256 reserveIn, uint256 reserveOut)
         external
