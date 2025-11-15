@@ -40,7 +40,7 @@ interface IBondingCurveFactory {
 
     event Create(
         address indexed owner,
-        address indexed curve,
+        address indexed bc,
         address indexed token,
         string tokenURI,
         string name,
@@ -73,13 +73,13 @@ interface IBondingCurveFactory {
     )
         external
         returns (
-            address curve,
+            address bc,
             address token,
             uint256 virtualNative,
             uint256 virtualToken
         );
 
-    function getCurve(address token) external view returns (address curve);
+    function getBc(address token) external view returns (address bc);
 
     function getOwner() external view returns (address owner); // `view`
 

@@ -16,3 +16,9 @@
 [submodule "lib/permit2"]
 	path = lib/permit2
 	url = https://github.com/uniswap/permit2
+[submodule "lib/v2-core"]
+	path = lib/v2-core
+	url = https://github.com/uniswap/v2-core
+[submodule "lib/v2-periphery"]
+	path = lib/v2-periphery
+	url = https://github.com/uniswap/v2-periphery

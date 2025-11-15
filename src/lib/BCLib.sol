@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {console} from "forge-std/console.sol";
-import "../interfaces/IBondingCurve.sol";
-import "../interfaces/IBondingCurveFactory.sol";
-import "../errors/CustomErrors.sol";
+import {IBondingCurve} from "../interfaces/IBondingCurve.sol";
+import {IBondingCurveFactory} from "../interfaces/IBondingCurveFactory.sol";
+import * as CustomErrors from "../errors/CustomErrors.sol";
 
 /**
  * @title BCLib
@@ -30,7 +29,7 @@ library BCLib {
     ) internal pure returns (uint256 amountOut) {
         require(
             amountIn > 0 && reserveIn > 0 && reserveOut > 0,
-            INVALID_INPUT_BC_LIBRARY
+            CustomErrors.INVALID_INPUT_BC_LIBRARY
         );
 
         uint256 newReserveIn = reserveIn + amountIn;
@@ -38,10 +37,7 @@ library BCLib {
         // Use newReserveIn - 1 to round up when dividing
         uint256 newReserveOut = (k + newReserveIn - 1) / newReserveIn;
 
-        require(
-            newReserveOut < reserveOut,
-            INSUFFICIENT_BC_LIQUIDITY
-        );
+        require(newReserveOut < reserveOut, CustomErrors.INSUFFICIENT_BC_LIQUIDITY);
         amountOut = reserveOut - newReserveOut;
     }
 
@@ -59,10 +55,7 @@ library BCLib {
         uint256 reserveIn,
         uint256 reserveOut
     ) internal pure returns (uint256 amountIn) {
-        require(
-            amountOut <= reserveOut,
-            INVALID_AMOUNT_OUT
-        );
+        require(amountOut <= reserveOut, CustomErrors.INVALID_AMOUNT_OUT);
 
         uint256 newReserveOut = reserveOut - amountOut;
 
@@ -74,17 +67,17 @@ library BCLib {
 
     /**
      * @notice Calculates fee and adjusted output amount for a given curve
-     * @param curve Address of the bonding curve contract
+     * @param bc Address of the bonding curve contract
      * @param amountOut Original output amount before fee
      * @return fee Fee amount to be deducted
      * @return adjustedAmountOut Final output amount after fee deduction
      */
     function getAmountAndFee(
-        address curve,
+        address bc,
         uint256 amountOut
     ) internal view returns (uint256 fee, uint256 adjustedAmountOut) {
-        uint8 denominator = 255;
-        uint16 numerator = 1;
+        (uint8 denominator, uint16 numerator) = IBondingCurve(bc)
+            .getFeeConfig();
 
         fee = getFeeAmount(amountOut, denominator, numerator);
         adjustedAmountOut = amountOut - fee;
@@ -109,89 +102,88 @@ library BCLib {
      * @notice Retrieves all relevant data for a bonding curve from factory
      * @param factory Address of the bonding curve factory
      * @param token Token address associated with the curve
-     * @return curve Address of the bonding curve
+     * @return bc Address of the bonding curve
      * @return virtualNative Virtual NAD reserve
      * @return virtualToken Virtual token reserve
      * @return k Constant product k
      */
-    function getCurveData(
+    function getBcData(
         address factory,
         address token
     )
         internal
         view
         returns (
-            address curve,
+            address bc,
             uint256 virtualNative,
             uint256 virtualToken,
             uint256 k
         )
     {
-        curve = getCurve(factory, token);
-        (virtualNative, virtualToken) = getVirtualReserves(curve);
-        k = getK(curve);
+        bc = getBc(factory, token);
+        (virtualNative, virtualToken) = getVirtualReserves(bc);
+        k = getK(bc);
     }
 
     /**
      * @notice Retrieves curve data directly from curve address
-     * @param curve Address of the bonding curve
+     * @param bc Address of the bonding curve
      * @return virtualNative Virtual NAD reserve
      * @return virtualToken Virtual token reserve
      * @return k Constant product k
      */
-    function getCurveData(
-        address curve
+    function getBcData(
+        address bc
     )
         internal
         view
         returns (uint256 virtualNative, uint256 virtualToken, uint256 k)
     {
-        (virtualNative, virtualToken) = getVirtualReserves(curve);
-        k = getK(curve);
+        (virtualNative, virtualToken) = getVirtualReserves(bc);
+        k = getK(bc);
     }
 
     /**
      * @notice Gets fee configuration from a bonding curve
-     * @param curve Address of the bonding curve
+     * @param bc Address of the bonding curve
      * @return Fee denominator and numerator
      */
-    function getFeeConfig(address curve) internal view returns (uint8, uint16) {
-        return (255, 1);
+    function getFeeConfig(address bc) internal view returns (uint8, uint16) {
+        return IBondingCurve(bc).getFeeConfig();
     }
 
     /**
-     * @notice Gets curve address from factory for a given token
+     * @notice Gets bc address from factory for a given token
      * @param factory Address of the factory contract
      * @param token Token address to look up
-     * @return curve Address of the corresponding bonding curve
+     * @return bc Address of the corresponding bonding curve
      */
-    function getCurve(
+    function getBc(
         address factory,
         address token
-    ) internal view returns (address curve) {
-        curve = IBondingCurveFactory(factory).getCurve(token);
-        return curve;
+    ) internal view returns (address bc) {
+        bc = IBondingCurveFactory(factory).getBc(token);
+        return bc;
     }
 
     /**
      * @notice Retrieves virtual reserves from a bonding curve
-     * @param curve Address of the bonding curve
+     * @param bc Address of the bonding curve
      * @return virtualNative Virtual NAD reserve
      * @return virtualToken Virtual token reserve
      */
     function getVirtualReserves(
-        address curve
+        address bc
     ) internal view returns (uint256 virtualNative, uint256 virtualToken) {
-        return (1_000_000, 1_000_000);
+        (virtualNative, virtualToken) = IBondingCurve(bc).getVirtualReserves();
     }
 
     /**
      * @notice Gets the constant product k from a bonding curve
-     * @param curve Address of the bonding curve
+     * @param bc Address of the bonding curve
      * @return k Constant product value
      */
-    function getK(address curve) internal view returns (uint256 k) {
-        address newCurve = curve;
-        return 1_000_000;
+    function getK(address bc) internal view returns (uint256 k) {
+        k = IBondingCurve(bc).getK();
     }
 }

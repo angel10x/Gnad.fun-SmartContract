@@ -2,9 +2,6 @@
 pragma solidity ^0.8.20;
 
 import {
-    IERC20Permit
-} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
-import {
     ERC20Permit
 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -42,10 +39,11 @@ contract WMon is ERC20Permit, IWMon {
         return super.nonces(owner);
     }
 
-    function permitTypeHash() public pure virtual returns (bytes32) {
-        return
-            keccak256(
-                "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-            );
+    function permitTypeHash() public pure virtual returns (bytes32 x) {
+        bytes
+            memory _input = "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)";
+        assembly {
+            x := keccak256(add(_input, 0x20), mload(_input))
+        }
     }
 }

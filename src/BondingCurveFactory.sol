@@ -6,7 +6,7 @@ import {IBondingCurveFactory} from "./interfaces/IBondingCurveFactory.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {Token} from "./Token.sol";
 import {BondingCurve} from "./BondingCurve.sol";
-import "./errors/CustomErrors.sol";
+import * as CustomErrors from "./errors/CustomErrors.sol";
 
 /**
  * @title BondingCurveFactory
@@ -17,9 +17,9 @@ contract BondingCurveFactory is IBondingCurveFactory {
     address private owner;
     address private gNad;
     address private dexFactory;
-    address public immutable wNative;
+    address public immutable WMON;
     Config private config;
-    mapping(address => address) private curves;
+    mapping(address => address) private bcs;
 
     /**
      * @notice Constructor initializes the factory with essential addresses
@@ -30,14 +30,14 @@ contract BondingCurveFactory is IBondingCurveFactory {
     constructor(address _owner, address _gNad, address _wMon) {
         owner = _owner;
         gNad = _gNad;
-        wNative = _wMon;
+        WMON = _wMon;
     }
 
     /**
      * @notice Modifier to restrict function access to owner only
      */
     modifier onlyOwner() {
-        require(msg.sender == owner, INVALID_BC_FACTORY_OWNER);
+        require(msg.sender == owner, CustomErrors.INVALID_BC_FACTORY_OWNER);
         _;
     }
 
@@ -45,7 +45,7 @@ contract BondingCurveFactory is IBondingCurveFactory {
      * @notice Modifier to restrict function access to core contract only
      */
     modifier onlyGnad() {
-        require(msg.sender == gNad, INVALID_GNAD);
+        require(msg.sender == gNad, CustomErrors.INVALID_GNAD);
         _;
     }
 
@@ -55,17 +55,17 @@ contract BondingCurveFactory is IBondingCurveFactory {
      */
     function initialize(InitializeParams memory params) public onlyOwner {
         uint256 k = params.virtualNative * params.virtualToken;
-        config = Config(
-            params.deployFee,
-            params.listingFee,
-            params.tokenTotalSupply,
-            params.virtualNative,
-            params.virtualToken,
-            k,
-            params.targetToken,
-            params.feeNumerator,
-            params.feeDenominator
-        );
+        config = Config({
+            deployFee: params.deployFee,
+            listingFee: params.listingFee,
+            tokenTotalSupply: params.tokenTotalSupply,
+            virtualNative: params.virtualNative,
+            virtualToken: params.virtualToken,
+            k: k,
+            targetToken: params.targetToken,
+            feeNumerator: params.feeNumerator,
+            feeDenominator: params.feeDenominator
+        });
         dexFactory = params.dexFactory;
         emit SetInitialize(
             params.deployFee,
@@ -87,24 +87,34 @@ contract BondingCurveFactory is IBondingCurveFactory {
      * @param name Token name
      * @param symbol Token symbol
      * @param tokenURI Token URI for metadata
-     * @return curve Address of the created bonding curve
+     * @return bc Address of the created bonding curve
      * @return token Address of the created token
      * @return virtualNative Initial virtual NAD reserve
      * @return virtualToken Initial virtual token reserve
      */
-    function create(address creator, string memory name, string memory symbol, string memory tokenURI)
+    function create(
+        address creator,
+        string memory name,
+        string memory symbol,
+        string memory tokenURI
+    )
         external
         onlyGnad
-        returns (address curve, address token, uint256 virtualNative, uint256 virtualToken)
+        returns (
+            address bc,
+            address token,
+            uint256 virtualNative,
+            uint256 virtualToken
+        )
     {
         Config memory _config = getConfig();
 
-        curve = address(new BondingCurve(gNad, wNative));
+        bc = address(new BondingCurve(gNad, WMON));
         token = address(new Token(name, symbol, tokenURI, gNad));
 
-        IToken(token).mint(curve);
+        IToken(token).mint(bc);
 
-        IBondingCurve(curve).initialize(
+        IBondingCurve(bc).initialize(
             token,
             _config.virtualNative,
             _config.virtualToken,
@@ -114,10 +124,19 @@ contract BondingCurveFactory is IBondingCurveFactory {
             _config.feeNumerator
         );
 
-        curves[token] = curve;
+        bcs[token] = bc;
         virtualNative = _config.virtualNative;
         virtualToken = _config.virtualToken;
-        emit Create(creator, curve, token, tokenURI, name, symbol, virtualNative, virtualToken);
+        emit Create(
+            creator,
+            bc,
+            token,
+            tokenURI,
+            name,
+            symbol,
+            virtualNative,
+            virtualToken
+        );
     }
 
     /**
@@ -156,10 +175,10 @@ contract BondingCurveFactory is IBondingCurveFactory {
     /**
      * @notice Gets the bonding curve address for a given token
      * @param token Token address to query
-     * @return curve Address of the corresponding bonding curve
+     * @return bc Address of the corresponding bonding curve
      */
-    function getCurve(address token) public view override returns (address curve) {
-        curve = curves[token];
+    function getBc(address token) public view override returns (address bc) {
+        bc = bcs[token];
     }
 
     /**
@@ -207,9 +226,12 @@ contract BondingCurveFactory is IBondingCurveFactory {
      * @return denominator Fee denominator
      * @return numerator Fee numerator
      */
-    function getFeeConfig() public view returns (uint8 denominator, uint16 numerator) {
-        denominator = config.feeDenominator;
-        numerator = config.feeNumerator;
+    function getFeeConfig()
+        public
+        view
+        returns (uint8 denominator, uint16 numerator)
+    {
+        return (config.feeDenominator, config.feeNumerator);
     }
 
     /**
