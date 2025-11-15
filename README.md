@@ -268,3 +268,5 @@ test/
 ```
 
 📌 For questions or support, please open an issue in the GitHub repository.
+
+📖 Need help? Check out my [Support Guide](./SUPPORT.md)
